@@ -170,6 +170,7 @@ namespace cg::renderer
 						size_t uy = static_cast<size_t>(y);
 
 						if (depth_test(depth, ux, uy)) {
+							pixel_shader(vertices[0], depth);
 							auto pixel_result = pixel_shader(vertices[0], depth);
 							render_target->item(ux, uy) = RT::from_color(pixel_result);
 							if (depth_buffer)
