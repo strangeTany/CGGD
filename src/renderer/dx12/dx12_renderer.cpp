@@ -79,7 +79,7 @@ ComPtr<IDXGIFactory4> cg::renderer::dx12_renderer::get_dxgi_factory()
 		};
 	#endif
 		ComPtr<IDXGIFactory4> dxgi_factory;
-		THROW_IF_FAILD(CreateDXGIFactory2 (dxgi_factory_flags,
+		THROW_IF_FAILED(CreateDXGIFactory2 (dxgi_factory_flags,
 											IID_PPV_ARGS(&dxgi_factory )));
 		return dxgi_factory;
 }
@@ -97,14 +97,14 @@ void cg::renderer::dx12_renderer::initialize_device(ComPtr<IDXGIFactory4>& dxgi_
 	#endif
 		THROW_IF_FAILED (D3D12CreateDevice(hardware_adapter.Get(),
 											D3D_FEATURE_LEVEL_11_0,
-										  ID_PPV_ARGS(&device)));
+										  IID_PPV_ARGS(&device)));
 }
 
 void cg::renderer::dx12_renderer::create_direct_command_queue()
 {
 		D3D12_COMMAND_QUEUE_DESC queue_desc{};
-	queve_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	queve_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	THROW_IF_FAILED (device->CreateCommandQueue (&queue_desc,
 											 IID_PPV_ARGS (&command_queue)));
 }
@@ -121,7 +121,7 @@ void cg::renderer::dx12_renderer::create_swap_chain(ComPtr<IDXGIFactory4>& dxgi_
 	swap_chain_desc.SampleDesc.Count = 1;
 
 	ComPtr<IDXGISwapChain1> temp_swap_chain;
-	THROW_IF_FAILD (xgi_factory->CreateSwapChainForHwnd (command_queue.Get(),
+	THROW_IF_FAILED (dxgi_factory->CreateSwapChainForHwnd (command_queue.Get(),
 			cg::utils::window::get_hwnd(), &swap_chain_desc, nullptr, nullptr, &temp_swap_chain));
 
 	dxgi_factory->MakeWindowAssociation(
@@ -231,7 +231,7 @@ void cg::renderer::dx12_renderer::create_root_signature(const D3D12_STATIC_SAMPL
 	}
 
 	THROW_IF_FAILED(device->CreateRootSignature(
-		0, signature->GetBufferPointer(), signature->GetBufferSize ), IID_PPV_ARGS (&root_signature));
+		0, signature->GetBufferPointer(), signature->GetBufferSize (), IID_PPV_ARGS(&root_signature)));
 
 }
 
@@ -263,7 +263,7 @@ ComPtr<ID3DBlob> cg::renderer::dx12_renderer::compile_shader(const std::filesyst
 			THROW_IF_FAILED(res);
 		}
 
-		return shader
+		return shader;
 }
 
 void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
@@ -308,8 +308,8 @@ void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 		};
 
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
-		pso_desc.InputLayout = {input_descs, _countof(input_desc)}
-		pso_desc.pRootSignature = root_signature.Get());
+		pso_desc.InputLayout = {input_descs, _countof(input_descs)};
+		pso_desc.pRootSignature = root_signature.Get();
 		pso_desc.VS = CD3DX12_SHADER_BYTECODE (vertex_shader.Get());
 		pso_desc.PS = CD3DX12_SHADER_BYTECODE(pixel_shader.Get());
 		pso_desc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -324,21 +324,21 @@ void cg::renderer::dx12_renderer::create_pso(const std::string& shader_name)
 		pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		pso_desc.SampleDesc.Count = 1;
 
-		THROW_IF_FAILD(device->CreateGraphicsPipelineState(
+		THROW_IF_FAILED(device->CreateGraphicsPipelineState(
 				&pso_desc, IID_PPV_ARGS(&pipeline_state)
 				));
 }
 
 void cg::renderer::dx12_renderer::create_resource_on_upload_heap(ComPtr<ID3D12Resource>& resource, UINT size, const std::wstring& name)
 {
-	THROW_IF_FAILED(device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES (D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(size),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&resource)
-			));
+		THROW_IF_FAILED(device->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+				D3D12_HEAP_FLAG_NONE,
+				&CD3DX12_RESOURCE_DESC::Buffer(64 * 1024),
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&constant_buffer)));
+
 	if (!name.empty())
 	{
 			resource->SetName(name.c_str());
@@ -441,7 +441,7 @@ void cg::renderer::dx12_renderer::load_assets()
 	std::wstring constant_buffer_name(L"Constant buffer");
 	create_resource_on_upload_heap (constant_buffer,
 								   	64 * 1024,
-								   	const_buffer_name);
+								   	constant_buffer_name);
 	copy_data (&cb, sizeof(cb), constant_buffer);
 
 	CD3DX12_RANGE read_range(0, 0);
@@ -459,7 +459,7 @@ void cg::renderer::dx12_renderer::load_assets()
 			cbv_srv_heap.get_cpu_descriptor_handle());
 
 	THROW_IF_FAILED(command_list->Close ());
-	THROW_IF_FAILED (device->CreateFence (0, D3D12_FENCE_FLAG_NONE
+	THROW_IF_FAILED (device->CreateFence (0, D3D12_FENCE_FLAG_NONE,
 												IID_PPV_ARGS(&fence)));
 	fence_event = CreateEvent (nullptr, FALSE, FALSE, nullptr);
 
@@ -475,7 +475,7 @@ void cg::renderer::dx12_renderer::load_assets()
 void cg::renderer::dx12_renderer::populate_command_list()
 {
 	THROW_IF_FAILED(command_allocators[frame_index]->Reset())
-	THROW IF FAILED(command list->Reset(
+	THROW_IF_FAILED(command_list->Reset(
 			command_allocators[frame_index].Get(), pipeline_state.Get()
 					));
 
@@ -488,7 +488,7 @@ void cg::renderer::dx12_renderer::populate_command_list()
 	);
 	command_list->RSSetViewports (1, &view_port);
 	command_list->RSSetScissorRects (1, &scissor_rect);
-	command_list->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	command_list->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	D3D12_RESOURCE_BARRIER begin_barriers[] = {
 			CD3DX12_RESOURCE_BARRIER::Transition(
@@ -605,5 +605,5 @@ D3D12_GPU_DESCRIPTOR_HANDLE cg::renderer::descriptor_heap::get_gpu_descriptor_ha
 }
 ID3D12DescriptorHeap* cg::renderer::descriptor_heap::get() const
 {
-	return heap.Get()
+	return heap.Get();
 }
