@@ -567,7 +567,7 @@ void cg::renderer::dx12_renderer::wait_for_gpu()
 			));
 	THROW_IF_FAILED(fence->SetEventOnCompletion(
 			fence_values [frame_index],
-			fence event
+			fence_event
 			));
 	WaitForSingleObjectEx(fence_event, INFINITE, FALSE);
 	fence_values[frame_index]++;
